@@ -15,9 +15,6 @@
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
       padding: 20px;
     }
 
@@ -26,8 +23,9 @@
       border-radius: 30px;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
       padding: 40px;
-      max-width: 600px;
+      max-width: 1200px;
       width: 100%;
+      margin: 0 auto;
       backdrop-filter: blur(10px);
     }
 
@@ -78,7 +76,7 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 20px;
-      margin-top: 30px;
+      margin-bottom: 30px;
     }
 
     .weather-card {
@@ -163,6 +161,123 @@
       opacity: 0.8;
     }
 
+    /* LED Control Section */
+    .led-control {
+      background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+      border-radius: 20px;
+      padding: 30px;
+      margin-bottom: 30px;
+      box-shadow: 0 10px 30px rgba(253, 203, 110, 0.4);
+      text-align: center;
+    }
+
+    .led-control h2 {
+      color: #333;
+      font-size: 1.5em;
+      margin-bottom: 20px;
+      font-weight: 400;
+    }
+
+    .led-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 20px;
+      padding: 15px 30px;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 50px;
+      font-size: 1.2em;
+      font-weight: 600;
+    }
+
+    .led-indicator {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #95a5a6;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+      transition: all 0.3s ease;
+    }
+
+    .led-indicator.on {
+      background: #2ecc71;
+      box-shadow: 0 0 20px #2ecc71, 0 0 40px #2ecc71;
+      animation: ledGlow 1.5s infinite;
+    }
+
+    .led-indicator.off {
+      background: #e74c3c;
+      box-shadow: 0 0 5px rgba(231, 76, 60, 0.5);
+    }
+
+    @keyframes ledGlow {
+      0%, 100% { box-shadow: 0 0 20px #2ecc71, 0 0 40px #2ecc71; }
+      50% { box-shadow: 0 0 30px #2ecc71, 0 0 60px #2ecc71; }
+    }
+
+    .led-buttons {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+    }
+
+    .led-button {
+      padding: 15px 40px;
+      font-size: 1.1em;
+      font-weight: 600;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .led-button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .led-button:active {
+      transform: translateY(-1px);
+    }
+
+    .led-button.on {
+      background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+      color: white;
+    }
+
+    .led-button.off {
+      background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+      color: white;
+    }
+
+    /* Charts Section */
+    .charts-section {
+      margin-top: 30px;
+    }
+
+    .chart-container {
+      background: white;
+      border-radius: 20px;
+      padding: 25px;
+      margin-bottom: 20px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .chart-title {
+      color: #333;
+      font-size: 1.3em;
+      margin-bottom: 20px;
+      font-weight: 500;
+      text-align: center;
+    }
+
+    .chart-canvas {
+      max-height: 300px;
+    }
+
     .last-update {
       text-align: center;
       color: #999;
@@ -172,7 +287,7 @@
       border-top: 1px solid #eee;
     }
 
-    @media (max-width: 500px) {
+    @media (max-width: 768px) {
       .container {
         padding: 25px;
       }
@@ -183,6 +298,14 @@
       
       .value {
         font-size: 2.5em;
+      }
+
+      .led-buttons {
+        flex-direction: column;
+      }
+
+      .led-button {
+        width: 100%;
       }
     }
 
@@ -220,6 +343,33 @@
       </div>
     </div>
 
+    <!-- LED Control Section -->
+    <div class="led-control">
+      <h2>💡 LED Control</h2>
+      <div class="led-status">
+        <span>LED Status:</span>
+        <div id="ledIndicator" class="led-indicator"></div>
+        <span id="ledStatusText">Unknown</span>
+      </div>
+      <div class="led-buttons">
+        <button class="led-button on" onclick="controlLED('ON')">Turn ON</button>
+        <button class="led-button off" onclick="controlLED('OFF')">Turn OFF</button>
+      </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="charts-section">
+      <div class="chart-container">
+        <div class="chart-title">📈 Temperature Variation</div>
+        <canvas id="tempChart" class="chart-canvas"></canvas>
+      </div>
+
+      <div class="chart-container">
+        <div class="chart-title">📊 Humidity Variation</div>
+        <canvas id="humChart" class="chart-canvas"></canvas>
+      </div>
+    </div>
+
     <div class="last-update">
       Last update: <span id="lastUpdate">Never</span>
     </div>
@@ -227,20 +377,129 @@
 
   <!-- Include MQTT.js -->
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <!-- Include Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     const statusEl = document.getElementById('status');
     const tempEl = document.getElementById('temp');
     const humEl = document.getElementById('hum');
     const lastUpdateEl = document.getElementById('lastUpdate');
+    const ledIndicator = document.getElementById('ledIndicator');
+    const ledStatusText = document.getElementById('ledStatusText');
+
+    // Data storage for charts (keep last 20 readings)
+    const maxDataPoints = 20;
+    const temperatureData = [];
+    const humidityData = [];
+    const timeLabels = [];
 
     // Connect to your Mosquitto broker via WebSocket
     const client = mqtt.connect('ws://157.173.101.159:9001');
+
+    // Initialize Charts
+    const tempChartCtx = document.getElementById('tempChart').getContext('2d');
+    const tempChart = new Chart(tempChartCtx, {
+      type: 'line',
+      data: {
+        labels: timeLabels,
+        datasets: [{
+          label: 'Temperature (°C)',
+          data: temperatureData,
+          borderColor: '#f5576c',
+          backgroundColor: 'rgba(245, 87, 108, 0.1)',
+          borderWidth: 3,
+          tension: 0.4,
+          fill: true,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#f5576c',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top'
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: false,
+            grid: {
+              color: 'rgba(0, 0, 0, 0.05)'
+            }
+          },
+          x: {
+            grid: {
+              color: 'rgba(0, 0, 0, 0.05)'
+            }
+          }
+        },
+        animation: {
+          duration: 750
+        }
+      }
+    });
+
+    const humChartCtx = document.getElementById('humChart').getContext('2d');
+    const humChart = new Chart(humChartCtx, {
+      type: 'line',
+      data: {
+        labels: timeLabels,
+        datasets: [{
+          label: 'Humidity (%)',
+          data: humidityData,
+          borderColor: '#00f2fe',
+          backgroundColor: 'rgba(0, 242, 254, 0.1)',
+          borderWidth: 3,
+          tension: 0.4,
+          fill: true,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#00f2fe',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top'
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: false,
+            max: 100,
+            grid: {
+              color: 'rgba(0, 0, 0, 0.05)'
+            }
+          },
+          x: {
+            grid: {
+              color: 'rgba(0, 0, 0, 0.05)'
+            }
+          }
+        },
+        animation: {
+          duration: 750
+        }
+      }
+    });
 
     client.on('connect', () => {
       console.log('Connected to MQTT broker');
       statusEl.textContent = '✓ Connected to broker';
       statusEl.className = 'status connected';
       client.subscribe('weather/station/data');
+      client.subscribe('weather/station/led/status');
     });
 
     client.on('error', (error) => {
@@ -261,27 +520,81 @@
 
     client.on('message', (topic, message) => {
       try {
-        const data = JSON.parse(message.toString());
-        
-        // Remove loading class and update values
-        tempEl.classList.remove('loading');
-        humEl.classList.remove('loading');
-        
-        // Update temperature
-        tempEl.innerHTML = `${data.temperature.toFixed(1)}<span class="unit">°C</span>`;
-        
-        // Update humidity
-        humEl.innerHTML = `${data.humidity.toFixed(1)}<span class="unit">%</span>`;
-        
-        // Update timestamp
-        const now = new Date();
-        lastUpdateEl.textContent = now.toLocaleTimeString();
-        
-        console.log('Data received:', data);
+        if (topic === 'weather/station/data') {
+          const data = JSON.parse(message.toString());
+          
+          // Remove loading class and update values
+          tempEl.classList.remove('loading');
+          humEl.classList.remove('loading');
+          
+          // Update temperature
+          tempEl.innerHTML = `${data.temperature.toFixed(1)}<span class="unit">°C</span>`;
+          
+          // Update humidity
+          humEl.innerHTML = `${data.humidity.toFixed(1)}<span class="unit">%</span>`;
+          
+          // Update timestamp
+          const now = new Date();
+          const timeStr = now.toLocaleTimeString();
+          lastUpdateEl.textContent = timeStr;
+          
+          // Add data to charts
+          addDataToCharts(data.temperature, data.humidity, timeStr);
+          
+          console.log('Data received:', data);
+        } else if (topic === 'weather/station/led/status') {
+          const status = message.toString().toUpperCase();
+          updateLEDStatus(status);
+        }
       } catch (error) {
         console.error('Error parsing message:', error);
       }
     });
+
+    function addDataToCharts(temp, hum, time) {
+      // Add new data
+      temperatureData.push(temp);
+      humidityData.push(hum);
+      timeLabels.push(time);
+
+      // Keep only the last maxDataPoints
+      if (temperatureData.length > maxDataPoints) {
+        temperatureData.shift();
+        humidityData.shift();
+        timeLabels.shift();
+      }
+
+      // Update charts
+      tempChart.update();
+      humChart.update();
+    }
+
+    function controlLED(state) {
+      if (client.connected) {
+        client.publish('weather/station/led/control', state);
+        console.log(`LED control sent: ${state}`);
+        // Optimistically update UI
+        updateLEDStatus(state);
+      } else {
+        alert('Not connected to MQTT broker. Please wait for connection.');
+      }
+    }
+
+    function updateLEDStatus(status) {
+      if (status === 'ON') {
+        ledIndicator.className = 'led-indicator on';
+        ledStatusText.textContent = 'ON';
+        ledStatusText.style.color = '#2ecc71';
+      } else if (status === 'OFF') {
+        ledIndicator.className = 'led-indicator off';
+        ledStatusText.textContent = 'OFF';
+        ledStatusText.style.color = '#e74c3c';
+      } else {
+        ledIndicator.className = 'led-indicator';
+        ledStatusText.textContent = 'Unknown';
+        ledStatusText.style.color = '#95a5a6';
+      }
+    }
   </script>
 </body>
 </html>
