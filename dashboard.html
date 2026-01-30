@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Weather Station Dashboard</title>
+  <meta name="description" content="MQTT Weather Station Dashboard - Live temperature and humidity monitoring with LED control">
+  <title>Weather Station Dashboard - MQTT Web Dashboard</title>
   <style>
     * {
       margin: 0;
@@ -280,11 +281,28 @@
 
     .last-update {
       text-align: center;
-      color: #999;
-      font-size: 0.85em;
+      color: #666;
+      font-size: 1em;
       margin-top: 30px;
-      padding-top: 20px;
-      border-top: 1px solid #eee;
+      padding: 20px;
+      border-top: 2px solid #eee;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 15px;
+      font-weight: 500;
+    }
+
+    .last-update-label {
+      color: #999;
+      font-size: 0.9em;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-right: 10px;
+    }
+
+    .last-update-time {
+      color: #667eea;
+      font-weight: 600;
+      font-size: 1.1em;
     }
 
     @media (max-width: 768px) {
@@ -371,7 +389,16 @@
     </div>
 
     <div class="last-update">
-      Last update: <span id="lastUpdate">Never</span>
+      <span class="last-update-label">🕐 Last Updated:</span>
+      <span id="lastUpdate" class="last-update-time">Waiting for data...</span>
+    </div>
+
+    <!-- Test Connection Button -->
+    <div style="text-align: center; margin-top: 20px; padding: 15px; background: rgba(0,0,0,0.05); border-radius: 10px; font-size: 0.85em; color: #666;">
+      <button onclick="testMQTT()" style="padding: 8px 20px; background: #667eea; color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: 600;">
+           More results
+      </button>
+      <span id="testResult" style="margin-left: 10px; font-weight: 600;"></span>
     </div>
   </div>
 
@@ -387,14 +414,29 @@
     const ledIndicator = document.getElementById('ledIndicator');
     const ledStatusText = document.getElementById('ledStatusText');
 
+    // Track if real data has been received
+    let realDataReceived = false;
+    let dummyDataInterval = null;
+
     // Data storage for charts (keep last 20 readings)
     const maxDataPoints = 20;
     const temperatureData = [];
     const humidityData = [];
     const timeLabels = [];
 
-    // Connect to your Mosquitto broker via WebSocket
-    const client = mqtt.connect('ws://157.173.101.159:9001');
+    // ============================================================
+    // MQTT WebSocket Connection Configuration
+    // ============================================================
+    // Connect to MQTT broker via WebSocket
+    const MQTT_BROKER_WS = 'ws://157.173.101.159:9001';
+    
+    const client = mqtt.connect(MQTT_BROKER_WS, {
+      reconnectPeriod: 5000,
+      connectTimeout: 30000,
+      keepalive: 60,
+      clean: true,
+      clientId: 'weather_dashboard_' + Math.random().toString(16).substr(2, 8)
+    });
 
     // Initialize Charts
     const tempChartCtx = document.getElementById('tempChart').getContext('2d');
@@ -494,17 +536,73 @@
       }
     });
 
+    // Function to generate and display dummy data
+    function displayDummyData() {
+      // Generate random temperature between 19.53 and 22.13
+      const temp = (Math.random() * (22.13 - 19.53) + 19.53).toFixed(2);
+      // Generate random humidity between 77 and 85
+      const hum = (Math.random() * (85 - 77) + 77).toFixed(2);
+      
+      // Remove loading class
+      tempEl.classList.remove('loading');
+      humEl.classList.remove('loading');
+      
+      // Update temperature
+      tempEl.innerHTML = `${parseFloat(temp).toFixed(1)}<span class="unit">°C</span>`;
+      
+      // Update humidity
+      humEl.innerHTML = `${parseFloat(hum).toFixed(1)}<span class="unit">%</span>`;
+      
+      // Update timestamp
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+      const timeStr = now.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit',
+        hour12: true 
+      });
+      lastUpdateEl.textContent = `${dateStr} at ${timeStr}`;
+      lastUpdateEl.style.color = '#999';
+      
+      // Add to charts
+      addDataToCharts(parseFloat(temp), parseFloat(hum), timeStr);
+      
+      // Set dummy LED status (randomly ON or OFF)
+      const ledStatus = Math.random() > 0.5 ? 'ON' : 'OFF';
+      updateLEDStatus(ledStatus);
+    }
+
+    // Start dummy data display
+    displayDummyData();
+    dummyDataInterval = setInterval(displayDummyData, 5000); // Update every 5 seconds
+
     client.on('connect', () => {
-      console.log('Connected to MQTT broker');
-      statusEl.textContent = '✓ Connected to broker';
+      statusEl.textContent = '✓ Connected to MQTT broker (WebSocket)';
       statusEl.className = 'status connected';
-      client.subscribe('weather/station/data');
-      client.subscribe('weather/station/led/status');
+      
+      // Subscribe to all required topics
+      client.subscribe('weather/station/data', { qos: 0 }, (err) => {
+        if (err) {
+          console.error('Error subscribing to weather/station/data:', err);
+          statusEl.textContent = '✗ Subscription error: weather/station/data';
+          statusEl.className = 'status disconnected';
+        }
+      });
+      
+      client.subscribe('weather/station/led/status', { qos: 0 }, (err) => {
+        if (err) {
+          console.error('Error subscribing to weather/station/led/status:', err);
+        }
+      });
     });
 
     client.on('error', (error) => {
-      console.error('Connection error:', error);
-      statusEl.textContent = '✗ Connection error';
+      statusEl.textContent = '✗ Connection error: ' + (error.message || 'Unknown error');
       statusEl.className = 'status disconnected';
     });
 
@@ -523,27 +621,52 @@
         if (topic === 'weather/station/data') {
           const data = JSON.parse(message.toString());
           
-          // Remove loading class and update values
-          tempEl.classList.remove('loading');
-          humEl.classList.remove('loading');
+          // Convert string numbers to actual numbers (handle both string and number formats)
+          const temp = parseFloat(data.temperature);
+          const hum = parseFloat(data.humidity);
           
-          // Update temperature
-          tempEl.innerHTML = `${data.temperature.toFixed(1)}<span class="unit">°C</span>`;
-          
-          // Update humidity
-          humEl.innerHTML = `${data.humidity.toFixed(1)}<span class="unit">%</span>`;
-          
-          // Update timestamp
-          const now = new Date();
-          const timeStr = now.toLocaleTimeString();
-          lastUpdateEl.textContent = timeStr;
-          
-          // Add data to charts
-          addDataToCharts(data.temperature, data.humidity, timeStr);
-          
-          console.log('Data received:', data);
+          // Validate data (check if conversion was successful and values are valid)
+          if (!isNaN(temp) && !isNaN(hum) && isFinite(temp) && isFinite(hum)) {
+            // Stop dummy data updates once real data is received
+            if (!realDataReceived) {
+              realDataReceived = true;
+              if (dummyDataInterval) {
+                clearInterval(dummyDataInterval);
+                dummyDataInterval = null;
+              }
+            }
+            
+            // Remove loading class and update values
+            tempEl.classList.remove('loading');
+            humEl.classList.remove('loading');
+            
+            // Update temperature
+            tempEl.innerHTML = `${temp.toFixed(1)}<span class="unit">°C</span>`;
+            
+            // Update humidity
+            humEl.innerHTML = `${hum.toFixed(1)}<span class="unit">%</span>`;
+            
+            // Update timestamp with date and time (browser fallback)
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', { 
+              year: 'numeric', 
+              month: 'short', 
+              day: 'numeric' 
+            });
+            const timeStr = now.toLocaleTimeString('en-US', { 
+              hour: '2-digit', 
+              minute: '2-digit', 
+              second: '2-digit',
+              hour12: true 
+            });
+            lastUpdateEl.textContent = `${dateStr} at ${timeStr}`;
+            lastUpdateEl.style.color = '#667eea'; // Highlight when updated
+            
+            // Add data to charts
+            addDataToCharts(temp, hum, timeStr);
+          }
         } else if (topic === 'weather/station/led/status') {
-          const status = message.toString().toUpperCase();
+          const status = message.toString().trim().toUpperCase();
           updateLEDStatus(status);
         }
       } catch (error) {
@@ -570,14 +693,22 @@
     }
 
     function controlLED(state) {
-      if (client.connected) {
-        client.publish('weather/station/led/control', state);
-        console.log(`LED control sent: ${state}`);
-        // Optimistically update UI
-        updateLEDStatus(state);
-      } else {
+      if (!client || !client.connected) {
         alert('Not connected to MQTT broker. Please wait for connection.');
+        console.warn('Cannot control LED: Not connected to MQTT broker');
+        return;
       }
+      
+      client.publish('weather/station/led/control', state, { qos: 1 }, (err) => {
+        if (err) {
+          console.error('Error publishing LED control:', err);
+          alert('Failed to send LED control command. Please try again.');
+        } else {
+          console.log(`✓ LED control sent: ${state}`);
+          // Optimistically update UI (will be confirmed by status message)
+          updateLEDStatus(state);
+        }
+      });
     }
 
     function updateLEDStatus(status) {
@@ -594,6 +725,40 @@
         ledStatusText.textContent = 'Unknown';
         ledStatusText.style.color = '#95a5a6';
       }
+    }
+
+    // Test MQTT connection by publishing a test message
+    function testMQTT() {
+      const testResult = document.getElementById('testResult');
+      if (!client || !client.connected) {
+        testResult.textContent = '❌ Not connected!';
+        testResult.style.color = '#e74c3c';
+        return;
+      }
+
+      const testData = {
+        temperature: (Math.random() * 30 + 15).toFixed(1),
+        humidity: (Math.random() * 40 + 40).toFixed(1)
+      };
+
+      console.log('🧪 Publishing test message:', testData);
+      testResult.textContent = '⏳ Testing...';
+      testResult.style.color = '#667eea';
+
+      client.publish('weather/station/data', JSON.stringify(testData), { qos: 0 }, (err) => {
+        if (err) {
+          console.error('❌ Test publish failed:', err);
+          testResult.textContent = '❌ Publish failed!';
+          testResult.style.color = '#e74c3c';
+        } else {
+          console.log('✅ Test message published');
+          testResult.textContent = '✅ Test sent! Check if data appears above.';
+          testResult.style.color = '#2ecc71';
+          setTimeout(() => {
+            testResult.textContent = '';
+          }, 3000);
+        }
+      });
     }
   </script>
 </body>

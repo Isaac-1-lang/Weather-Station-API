@@ -10,6 +10,8 @@ const char* password = "121402pr0732021";
 const char* mqtt_server = "157.173.101.159";
 const int mqtt_port = 1883;
 const char* mqtt_topic = "weather/station/data";
+const char* mqtt_led_control_topic = "weather/station/led/control";
+const char* mqtt_led_status_topic = "weather/station/led/status";
 
 // ================= DHT ==================
 #define DHTPIN 5         // GPIO5
@@ -23,6 +25,7 @@ DHT dht(DHTPIN, DHTTYPE);
 // ================= GLOBAL VARIABLES ===============
 float temperature = 0;
 float humidity = 0;
+bool ledState = false;  // Track LED state
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -46,12 +49,54 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 
+// 💡 MQTT CALLBACK FUNCTION - Handle incoming messages
+void callback(char* topic, byte* payload, unsigned int length) {
+  String message = "";
+  for (int i = 0; i < length; i++) {
+    message += (char)payload[i];
+  }
+  
+  Serial.print(F("Message arrived ["));
+  Serial.print(topic);
+  Serial.print(F("] "));
+  Serial.println(message);
+  
+  // Handle LED control
+  if (String(topic) == mqtt_led_control_topic) {
+    message.trim();
+    message.toUpperCase();
+    if (message == "ON") {
+      digitalWrite(LED_PIN, HIGH);
+      ledState = true;
+      client.publish(mqtt_led_status_topic, "ON");
+      Serial.println(F("LED turned ON"));
+    } else if (message == "OFF") {
+      digitalWrite(LED_PIN, LOW);
+      ledState = false;
+      client.publish(mqtt_led_status_topic, "OFF");
+      Serial.println(F("LED turned OFF"));
+    } else {
+      Serial.print(F("Invalid LED command: "));
+      Serial.println(message);
+    }
+  }
+}
+
 void reconnect_mqtt() {
   while (!client.connected()) {
     Serial.print(F("Connecting to MQTT..."));
 
     if (client.connect("ESP8266_WeatherStation")) {
       Serial.println(F("connected"));
+      // Subscribe to LED control topic
+      client.subscribe(mqtt_led_control_topic);
+      Serial.print(F("Subscribed to: "));
+      Serial.println(mqtt_led_control_topic);
+      // Publish initial LED status
+      client.publish(mqtt_led_status_topic, ledState ? "ON" : "OFF");
+      // Publish initial sensor data immediately after connection
+      Serial.println(F("Publishing initial sensor data..."));
+      publish_sensor_data();
     } else {
       Serial.print(F("failed, rc="));
       Serial.print(client.state());
@@ -61,7 +106,6 @@ void reconnect_mqtt() {
       digitalWrite(LED_PIN, !digitalRead(LED_PIN));
     }
   }
-  digitalWrite(LED_PIN, HIGH); // LED ON when MQTT connected
 }
 
 // 🌡️ SENSOR READ FUNCTION
@@ -80,10 +124,14 @@ void read_sensor() {
 void publish_sensor_data() {
   read_sensor();
 
+  // Create JSON payload with numeric values (not quoted numbers)
   String payload = "{";
   payload += "\"temperature\":" + String(temperature, 2) + ",";
   payload += "\"humidity\":" + String(humidity, 2);
   payload += "}";
+  
+  // Note: String(temperature, 2) creates a numeric string without quotes
+  // This should produce: {"temperature":37.30,"humidity":64.00}
 
   Serial.print(F("Temperature: "));
   Serial.print(temperature, 2);
@@ -91,15 +139,14 @@ void publish_sensor_data() {
   Serial.print(humidity, 2);
   Serial.println(F(" %"));
 
-  client.publish(mqtt_topic, payload.c_str());
-
-  // Example LED alert: turn LED on if temperature > 30°C
-  if (temperature > 30) {
-    digitalWrite(LED_PIN, HIGH);
-  } else if (client.connected()) {
-    digitalWrite(LED_PIN, HIGH); // LED ON when MQTT OK
+  // Publish to MQTT
+  if (client.publish(mqtt_topic, payload.c_str())) {
+    Serial.print(F("✓ Published to "));
+    Serial.print(mqtt_topic);
+    Serial.print(F(": "));
+    Serial.println(payload);
   } else {
-    digitalWrite(LED_PIN, LOW);  // LED OFF otherwise
+    Serial.println(F("✗ Failed to publish data!"));
   }
 }
 
@@ -114,6 +161,7 @@ void setup() {
   dht.begin();
   setup_wifi();
   client.setServer(mqtt_server, mqtt_port);
+  client.setCallback(callback);  // Set callback function
 }
 
 // ================= LOOP ===================
